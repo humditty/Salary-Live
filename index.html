@@ -105,9 +105,9 @@
             gap: 12px;
         }
 
-        /* 午休时间行隐藏样式 */
-        .time-row.hidden {
-            display: none;
+        /* 通用隐藏样式 */
+        .hidden {
+            display: none !important;
         }
 
         /* 开关通用样式 */
@@ -248,15 +248,16 @@
             word-break: keep-all;
             overflow: hidden;
             text-overflow: clip;
-            max-width: 100%;
-            /* 字号自适应，适配所有屏幕 */
-            font-size: clamp(6vw, 18vw, 24vw);
+            max-width: 90%;
+            /* 字号自适应，调小以显得更精致 */
+            font-size: clamp(4vw, 12vw, 16vw);
             font-weight: 700;
             color: #4ade80;
             text-align: center;
             line-height: 1.1;
             font-variant-numeric: tabular-nums;
-            text-shadow: 0 0 40px rgba(74, 222, 128, 0.3);
+            letter-spacing: -0.02e m;
+            text-shadow: 0 0 50px rgba(74, 222, 128, 0.25);
         }
 
         /* 移动端适配 */
@@ -340,13 +341,18 @@
             <div class="label-row">
                 <label>下班后状态</label>
                 <div class="switch-wrapper">
-                    <span class="switch-label">开启加班暴击(1.5倍)</span>
+                    <span class="switch-label">开启加班模式</span>
                     <label class="switch">
                         <input type="checkbox" id="overtimeMode">
                         <span class="slider"></span>
                     </label>
                 </div>
             </div>
+        </div>
+
+        <div id="overtimeBonusGroup" class="input-group hidden">
+            <label for="overtimeBonus">加班补贴（元/小时）</label>
+            <input type="number" id="overtimeBonus" placeholder="没钱加什么班？赶紧下班！" min="0" step="10">
         </div>
 
         <div class="money-display">
@@ -389,6 +395,8 @@
         const restTimeRow = document.getElementById('restTimeRow');
         const showUnitInput = document.getElementById('showUnit'); 
         const overtimeModeInput = document.getElementById('overtimeMode');
+        const overtimeBonusInput = document.getElementById('overtimeBonus');
+        const overtimeBonusGroup = document.getElementById('overtimeBonusGroup');
         const earnedMoneyEl = document.getElementById('earnedMoney');
         const statusTipEl = document.getElementById('statusTip');
         const daySalaryEl = document.getElementById('daySalary');
@@ -402,14 +410,15 @@
             return showUnitInput.checked ? '¥ ' : '';
         }
 
-        // 午休模式切换（不午休模式隐藏设置）
-        function toggleRestMode() {
+        // 午休与加班模式UI切换
+        function toggleUIModes() {
+            // 午休
             const isNoRest = noRestModeInput.checked;
-            if (isNoRest) {
-                restTimeRow.classList.add('hidden');
-            } else {
-                restTimeRow.classList.remove('hidden');
-            }
+            restTimeRow.classList.toggle('hidden', isNoRest);
+            
+            // 加班
+            const isOvertime = overtimeModeInput.checked;
+            overtimeBonusGroup.classList.toggle('hidden', !isOvertime);
         }
 
         // 全屏开关
@@ -434,6 +443,8 @@
                 restEndInput.value = settings.restEnd || '13:00';
                 showUnitInput.checked = settings.showUnit !== undefined ? settings.showUnit : true;
                 overtimeModeInput.checked = settings.overtimeMode || false;
+                overtimeBonusInput.value = settings.overtimeBonus || '';
+                toggleUIModes();
             }
         }
 
@@ -448,7 +459,8 @@
                 restStart: restStartInput.value,
                 restEnd: restEndInput.value,
                 showUnit: showUnitInput.checked,
-                overtimeMode: overtimeModeInput.checked
+                overtimeMode: overtimeModeInput.checked,
+                overtimeBonus: overtimeBonusInput.value
             };
             localStorage.setItem('salaryCalculatorSettings', JSON.stringify(settings));
         }
@@ -586,7 +598,23 @@
             if (now > workEndTs) {
                 if (overtimeModeInput.checked) {
                     const extraMs = now - workEndTs;
-                    return { workedMs: data.totalWorkMs + extraMs * 1.5, status: 'workingNoRest', tip: '加班暴击模式！当前1.5倍薪资疯狂敛财中！' };
+                    const overtimeBonus = parseFloat(overtimeBonusInput.value) || 0;
+                    
+                    if (overtimeBonus <= 0) {
+                        return { workedMs: data.totalWorkMs, status: 'afterWork', tip: '【警告】检测到无偿加班！没钱加什么班？赶紧下班回家！' };
+                    }
+                    
+                    // 加班费计算：基础时薪 + 额外的加班补贴
+                    const overtimeEarnedMs = data.totalWorkMs + (extraMs * (data.hourSalary + overtimeBonus) / data.hourSalary);
+                    // 为了简化逻辑，这里直接返回金额倍率后的“虚拟毫秒”，或者在update中处理金额。
+                    // 修正：我们直接返回 calculatedMs。这里为了保持 update 代码简洁，我们计算一个等效的工作时长。
+                    const totalEquivMs = data.totalWorkMs + (extraMs * (data.hourSalary + overtimeBonus) / data.hourSalary);
+                    
+                    return { 
+                        workedMs: totalEquivMs, 
+                        status: 'workingNoRest', 
+                        tip: `加班敛财中！当前额外补贴 ¥${overtimeBonus}/小时，每秒都在赚！` 
+                    };
                 }
                 return { workedMs: data.totalWorkMs, status: 'afterWork' };
             }
@@ -647,11 +675,11 @@
 
         // 初始化
         loadSettings();
-        toggleRestMode();
+        toggleUIModes();
         update();
 
         // 监听输入变化，保存设置并更新
-        const allInputs = [monthlySalaryInput, workDaysTypeInput, workStartInput, workEndInput, restStartInput, restEndInput];
+        const allInputs = [monthlySalaryInput, workDaysTypeInput, workStartInput, workEndInput, restStartInput, restEndInput, overtimeBonusInput];
         allInputs.forEach(input => {
             input.addEventListener('input', () => {
                 saveSettings();
@@ -661,7 +689,7 @@
         // 监听各种开关
         [noRestModeInput, showUnitInput, overtimeModeInput].forEach(switchEl => {
             switchEl.addEventListener('change', () => {
-                toggleRestMode();
+                toggleUIModes();
                 saveSettings();
             });
         });
