@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今日赚薪实时计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            background-color: #1e1e1e;
+            border-radius: 16px;
+            padding: 32px 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 32px;
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        label {
+            font-size: 14px;
+            color: #a0a0a0;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            background-color: #2d2d2d;
+            border: 1px solid #3d3d3d;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+
+        .time-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* 午休时间行隐藏样式 */
+        .time-row.hidden {
+            display: none;
+        }
+
+        /* 开关通用样式 */
+        .switch-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .switch-label {
+            font-size: 14px;
+            color: #a0a0a0;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #3d3d3d;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4ade80;
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .money-display {
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .money-label {
+            font-size: 16px;
+            color: #a0a0a0;
+            margin-bottom: 8px;
+        }
+
+        .money-number {
+            font-size: 52px;
+            font-weight: 700;
+            color: #4ade80;
+            word-break: break-all;
+            line-height: 1.2;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            user-select: none;
+        }
+
+        .money-number:hover {
+            transform: scale(1.02);
+        }
+
+        .status-tip {
+            text-align: center;
+            font-size: 16px;
+            color: #a0a0a0;
+            min-height: 24px;
+            margin-bottom: 20px;
+        }
+
+        .extra-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #3d3d3d;
+        }
+
+        .info-item {
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #808080;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        /* 全屏显示样式 - 核心优化：强制不换行 */
+        .fullscreen-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0a0a0a;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            cursor: pointer;
+        }
+
+        .fullscreen-modal.show {
+            display: flex;
+        }
+
+        .fullscreen-money {
+            /* 核心不换行配置 */
+            white-space: nowrap;
+            word-break: keep-all;
+            overflow: hidden;
+            text-overflow: clip;
+            max-width: 100%;
+            /* 字号自适应，适配所有屏幕 */
+            font-size: clamp(6vw, 18vw, 24vw);
+            font-weight: 700;
+            color: #4ade80;
+            text-align: center;
+            line-height: 1.1;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 480px) {
+            .money-number {
+                font-size: 38px;
+            }
+            .container {
+                padding: 24px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>今日赚薪实时计算器</h1>
+
+        <div class="input-group">
+            <label for="monthlySalary">税前月薪（元）</label>
+            <input type="number" id="monthlySalary" placeholder="请输入你的月薪" min="0">
+        </div>
+
+        <div class="input-group">
+            <label>上下班时间</label>
+            <div class="time-row">
+                <div>
+                    <input type="time" id="workStart" value="09:00">
+                </div>
+                <div>
+                    <input type="time" id="workEnd" value="18:00">
+                </div>
+            </div>
+        </div>
+
+        <!-- 午休开关模块 -->
+        <div class="input-group">
+            <div class="label-row">
+                <label>午休时间（不计入工作时长）</label>
+                <div class="switch-wrapper">
+                    <span class="switch-label">不午休！</span>
+                    <label class="switch">
+                        <input type="checkbox" id="noRestMode">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div class="time-row" id="restTimeRow">
+                <div>
+                    <input type="time" id="restStart" value="12:00">
+                </div>
+                <div>
+                    <input type="time" id="restEnd" value="13:00">
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增：金额单位显示开关 -->
+        <div class="input-group">
+            <div class="label-row">
+                <label>金额显示设置</label>
+                <div class="switch-wrapper">
+                    <span class="switch-label">显示¥符号</span>
+                    <label class="switch">
+                        <input type="checkbox" id="showUnit" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="money-display">
+            <div class="money-label">今日已赚（点击全屏）</div>
+            <div class="money-number" id="earnedMoney">¥ 0.0000</div>
+        </div>
+
+        <div class="status-tip" id="statusTip">请输入月薪，开启今日赚钱计时~</div>
+
+        <div class="extra-info">
+            <div class="info-item">
+                <div class="info-label">日薪目标</div>
+                <div class="info-value" id="daySalary">¥ 0.0000</div>
+            </div>
+            <div class="info-item">
+                <div class="info-item">
+                    <div class="info-label">时薪标准</div>
+                    <div class="info-value" id="hourSalary">¥ 0.0000</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全屏显示遮罩层 -->
+    <div class="fullscreen-modal" id="fullscreenModal">
+        <div class="fullscreen-money" id="fullscreenMoney">¥ 0.0000</div>
+    </div>
+
+    <script>
+        // 法定月计薪天数
+        const MONTHLY_WORK_DAYS = 21.75;
+        // 核心元素获取
+        const monthlySalaryInput = document.getElementById('monthlySalary');
+        const workStartInput = document.getElementById('workStart');
+        const workEndInput = document.getElementById('workEnd');
+        const noRestModeInput = document.getElementById('noRestMode');
+        const restStartInput = document.getElementById('restStart');
+        const restEndInput = document.getElementById('restEnd');
+        const restTimeRow = document.getElementById('restTimeRow');
+        const showUnitInput = document.getElementById('showUnit'); // 新增：单位开关元素
+        const earnedMoneyEl = document.getElementById('earnedMoney');
+        const statusTipEl = document.getElementById('statusTip');
+        const daySalaryEl = document.getElementById('daySalary');
+        const hourSalaryEl = document.getElementById('hourSalary');
+        // 全屏元素
+        const fullscreenModal = document.getElementById('fullscreenModal');
+        const fullscreenMoneyEl = document.getElementById('fullscreenMoney');
+
+        // 获取金额单位前缀（核心：统一控制是否显示¥）
+        function getUnitPrefix() {
+            return showUnitInput.checked ? '¥ ' : '';
+        }
+
+        // 午休模式切换（不午休模式隐藏设置）
+        function toggleRestMode() {
+            const isNoRest = noRestModeInput.checked;
+            if (isNoRest) {
+                restTimeRow.classList.add('hidden');
+            } else {
+                restTimeRow.classList.remove('hidden');
+            }
+        }
+
+        // 全屏开关
+        function openFullscreen() {
+            fullscreenModal.classList.add('show');
+        }
+        function closeFullscreen() {
+            fullscreenModal.classList.remove('show');
+        }
+
+        // 本地存储加载
+        function loadSettings() {
+            const saved = localStorage.getItem('salaryCalculatorSettings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                monthlySalaryInput.value = settings.monthlySalary || '';
+                workStartInput.value = settings.workStart || '09:00';
+                workEndInput.value = settings.workEnd || '18:00';
+                noRestModeInput.checked = settings.noRestMode || false;
+                restStartInput.value = settings.restStart || '12:00';
+                restEndInput.value = settings.restEnd || '13:00';
+                showUnitInput.checked = settings.showUnit !== undefined ? settings.showUnit : true; // 加载单位开关状态
+            }
+        }
+
+        // 本地存储保存
+        function saveSettings() {
+            const settings = {
+                monthlySalary: monthlySalaryInput.value,
+                workStart: workStartInput.value,
+                workEnd: workEndInput.value,
+                noRestMode: noRestModeInput.checked,
+                restStart: restStartInput.value,
+                restEnd: restEndInput.value,
+                showUnit: showUnitInput.checked // 保存单位开关状态
+            };
+            localStorage.setItem('salaryCalculatorSettings', JSON.stringify(settings));
+        }
+
+        // 时间字符串转当天的时间戳
+        function timeToTimestamp(timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            const now = new Date();
+            const time = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+            return time.getTime();
+        }
+
+        // 计算核心薪资数据
+        function calculateSalaryData() {
+            const monthlySalary = parseFloat(monthlySalaryInput.value) || 0;
+            if (monthlySalary <= 0) return { daySalary: 0, hourSalary: 0, workMilliseconds: 0 };
+
+            // 日薪、时薪计算
+            const daySalary = monthlySalary / MONTHLY_WORK_DAYS;
+            // 工作时间戳
+            const workStartTs = timeToTimestamp(workStartInput.value);
+            const workEndTs = timeToTimestamp(workEndInput.value);
+            const restStartTs = timeToTimestamp(restStartInput.value);
+            const restEndTs = timeToTimestamp(restEndInput.value);
+
+            // 总工作时长（根据不午休模式判断是否扣除午休）
+            let totalWorkMs;
+            if (noRestModeInput.checked) {
+                totalWorkMs = workEndTs - workStartTs;
+            } else {
+                totalWorkMs = (workEndTs - workStartTs) - (restEndTs - restStartTs);
+            }
+
+            const totalWorkHours = totalWorkMs / (1000 * 60 * 60);
+            const hourSalary = totalWorkHours > 0 ? daySalary / totalWorkHours : 0;
+
+            return { daySalary, hourSalary, totalWorkMs, workStartTs, workEndTs, restStartTs, restEndTs };
+        }
+
+        // 计算已工作时长（毫秒）
+        function getWorkedMs(data) {
+            const now = Date.now();
+            const { workStartTs, workEndTs, restStartTs, restEndTs } = data;
+
+            // 还没到上班时间
+            if (now < workStartTs) {
+                return { workedMs: 0, status: 'beforeWork', tip: '还没到上班时间，今天也要加油搞钱呀~' };
+            }
+            // 已经下班了
+            if (now > workEndTs) {
+                return { workedMs: data.totalWorkMs, status: 'afterWork', tip: '今日打工结束！摸鱼也赚了一天的钱，太爽啦~' };
+            }
+
+            // 非不午休模式，执行午休时段逻辑
+            if (!noRestModeInput.checked) {
+                // 午休时间
+                if (now >= restStartTs && now <= restEndTs) {
+                    const workedBeforeRest = restStartTs - workStartTs;
+                    return { workedMs: workedBeforeRest, status: 'resting', tip: '午休时间！带薪休息，钱还在兜里，太舒服了~' };
+                }
+                // 上班中（午休前）
+                if (now < restStartTs) {
+                    const workedMs = now - workStartTs;
+                    return { workedMs, status: 'working', tip: '上班中！就算摸鱼也在赚钱，稳住！' };
+                }
+                // 上班中（午休后）
+                const workedBeforeRest = restStartTs - workStartTs;
+                const workedAfterRest = now - restEndTs;
+                return { workedMs: workedBeforeRest + workedAfterRest, status: 'working', tip: '上班中！就算摸鱼也在赚钱，稳住！' };
+            } else {
+                // 不午休模式，全程正常计薪
+                const workedMs = now - workStartTs;
+                return { workedMs, status: 'working', tip: '不午休模式！全程带薪，摸鱼也在疯狂赚钱~' };
+            }
+        }
+
+        // 实时更新函数
+        function update() {
+            const salaryData = calculateSalaryData();
+            const { daySalary, hourSalary } = salaryData;
+            const unitPrefix = getUnitPrefix(); // 统一获取单位前缀
+
+            // 更新基础薪资显示（4位小数+动态单位）
+            daySalaryEl.textContent = `${unitPrefix}${daySalary.toFixed(4)}`;
+            hourSalaryEl.textContent = `${unitPrefix}${hourSalary.toFixed(4)}`;
+
+            // 无月薪时的提示
+            if (daySalary <= 0) {
+                const zeroText = `${unitPrefix}0.0000`;
+                earnedMoneyEl.textContent = zeroText;
+                fullscreenMoneyEl.textContent = zeroText;
+                statusTipEl.textContent = '请输入月薪，开启今日赚钱计时~';
+                return;
+            }
+
+            // 计算已赚金额
+            const { workedMs, status, tip } = getWorkedMs(salaryData);
+            const workedHours = workedMs / (1000 * 60 * 60);
+            const earnedMoney = workedHours * hourSalary;
+            const moneyText = `${unitPrefix}${earnedMoney.toFixed(4)}`;
+
+            // 同步更新主界面&全屏的金额
+            earnedMoneyEl.textContent = moneyText;
+            fullscreenMoneyEl.textContent = moneyText;
+            statusTipEl.textContent = tip;
+        }
+
+        // 初始化
+        loadSettings();
+        toggleRestMode();
+        update();
+
+        // 监听输入变化，保存设置并更新
+        const allInputs = [monthlySalaryInput, workStartInput, workEndInput, restStartInput, restEndInput];
+        allInputs.forEach(input => {
+            input.addEventListener('input', () => {
+                saveSettings();
+                update();
+            });
+        });
+
+        // 监听不午休模式开关
+        noRestModeInput.addEventListener('change', () => {
+            toggleRestMode();
+            saveSettings();
+            update();
+        });
+
+        // 监听单位显示开关
+        showUnitInput.addEventListener('change', () => {
+            saveSettings();
+            update();
+        });
+
+        // 监听全屏点击事件
+        earnedMoneyEl.addEventListener('click', openFullscreen);
+        fullscreenModal.addEventListener('click', closeFullscreen);
+        // 按ESC键退出全屏
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeFullscreen();
+            }
+        });
+
+        // 100毫秒刷新一次，跳动更丝滑
+        setInterval(update, 100);
+    </script>
+</body>
+</html>
